@@ -1,23 +1,34 @@
+#Importando o scrapy
+
 import scrapy
-from scrapy.shell import inspect_response
-import re
+from scrapy.utils.response import open_in_browser
 
 
-class MLSpider(scrapy.Spider):
-    name = "Mercado Livre"
+class MercadoSpider(scrapy.Spider):
+    #Nomeando a classe
+    name = "MercadoSpider"
 
-    def __init__(self, category=None, *args, **kwargs):
-        start_urls = {
-            'https://lista.mercadolivre.com.br/' + category + '#D[A:' + category
-        }
-        super(MLSpider, self).__init__(*args, **kwargs)
+    def _init_(self, produto="", **kwargs):
+        self.start_urls = {"https://lista.mercadolivre.com.br/%s" % produto}
+        super()._init_(**kwargs)
 
+    
     def parse(self, response):
-        i = 0
-        itens = response.css('.item__info')
+        nomes_produtos = response.css(".main-title::text").extract()
+        preco_produtos = []
 
-        for item in itens:
-            if len(item.css('.item__price::text').extract())> 2:
-                print (item.css('.main-title::text').extract_first() + " - " + item.css('.price__fraction::text').extract_first() + "," + item.css('.price__decimal::text').extract_first())
-            else:
-                print (item.css('.main-title::text').extract_first() + " - " + item.css('.price__fraction::text').extract_first() + ",00")
+        for item in response.css(".item__price"):
+            preco = item.css(".price__fraction::text").extract_first()
+
+            if item.css(".price__decimals::text").extract_first():
+                preco += "," + item.css(".price__decimals::text").extract_first()
+
+            preco_produtos.append(preco)
+
+        for nome, preco in zip(nomes_produtos, preco_produtos):
+            yield {
+                "nome" : nome,
+                "preco" : preco
+            }
+        pagination = response.xpath("//ul[@role]/li[last()]/a")
+		
